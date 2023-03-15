@@ -11,7 +11,6 @@ dev tun
 proto tcp
 remote-random
 resolv-retry infinite
-cipher AES-256-CBC
 auth SHA1
 nobind
 link-mtu 1544
