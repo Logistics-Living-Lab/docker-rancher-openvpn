@@ -64,13 +64,12 @@ VPNPOOL_NETMASK=$(netmask -s $VPNPOOL_NETWORK/$VPNPOOL_CIDR | awk -F/ '{print $2
 cat > $OPENVPNDIR/server.conf <<- EOF
 port 1194
 proto tcp
-link-mtu 1500
+link-mtu 1544
 dev tun
 ca easy-rsa/keys/ca.crt
 cert easy-rsa/keys/server.crt
 key easy-rsa/keys/server.key
 dh easy-rsa/keys/dh2048.pem
-cipher AES-256-CBC
 auth SHA1
 server $VPNPOOL_NETWORK $VPNPOOL_NETMASK
 push "dhcp-option DNS $PUSHDNS"
