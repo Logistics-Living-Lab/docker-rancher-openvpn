@@ -26,6 +26,7 @@ creation process
 - CERT_ORG="ACME"
 - CERT_EMAIL="nobody@example.com"
 - CERT_OU="IT"
+- CERT_CN="ChangeMe"
 
 These variables define the network address and CIDR netmask for the ip pool which 
 will be the VPN subnet for OpenVPN to draw client addresses from

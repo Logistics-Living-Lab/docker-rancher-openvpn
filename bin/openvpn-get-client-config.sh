@@ -11,13 +11,12 @@ dev tun
 proto tcp
 remote-random
 resolv-retry infinite
-cipher AES-128-CBC
+cipher AES-256-CBC
 auth SHA1
 nobind
 link-mtu 1500
 persist-key
 persist-tun
-comp-lzo
 verb 3
 auth-user-pass
 auth-retry interact

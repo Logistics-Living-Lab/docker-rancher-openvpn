@@ -70,22 +70,22 @@ ca easy-rsa/keys/ca.crt
 cert easy-rsa/keys/server.crt
 key easy-rsa/keys/server.key
 dh easy-rsa/keys/dh2048.pem
-cipher AES-128-CBC
+cipher AES-256-CBC
 auth SHA1
 server $VPNPOOL_NETWORK $VPNPOOL_NETMASK
 push "dhcp-option DNS $PUSHDNS"
-push "dhcp-option SEARCH $PUSHSEARCH"
+push "dhcp-option DOMAIN $PUSHSEARCH"
 push "route $ROUTE_NETWORK $ROUTE_NETMASK"
 $RANCHER_METADATA_API
 keepalive 10 120
-comp-lzo
+compress lz4-v2
+push "compress lz4-v2"
 persist-key
 persist-tun
 client-to-client
 username-as-common-name
-client-cert-not-required
-
-script-security 3 system
+verify-client-cert none
+script-security 3
 auth-user-pass-verify /usr/local/bin/openvpn-auth.sh via-env
 
 EOF
@@ -97,33 +97,46 @@ if [ ! -d $OPENVPNDIR/easy-rsa ]; then
    # Copy easy-rsa tools to /etc/openvpn
    rsync -avz /usr/share/easy-rsa $OPENVPNDIR/
 
+   cp $OPENVPNDIR/easy-rsa/vars.example $OPENVPNDIR/easy-rsa/vars
+
     # Configure easy-rsa vars file
-   sed -i "s/export KEY_COUNTRY=.*/export KEY_COUNTRY=\"$CERT_COUNTRY\"/g" $OPENVPNDIR/easy-rsa/vars
-   sed -i "s/export KEY_PROVINCE=.*/export KEY_PROVINCE=\"$CERT_PROVINCE\"/g" $OPENVPNDIR/easy-rsa/vars
-   sed -i "s/export KEY_CITY=.*/export KEY_CITY=\"$CERT_CITY\"/g" $OPENVPNDIR/easy-rsa/vars
-   sed -i "s/export KEY_ORG=.*/export KEY_ORG=\"$CERT_ORG\"/g" $OPENVPNDIR/easy-rsa/vars
-   sed -i "s/export KEY_EMAIL=.*/export KEY_EMAIL=\"$CERT_EMAIL\"/g" $OPENVPNDIR/easy-rsa/vars
-   sed -i "s/export KEY_OU=.*/export KEY_OU=\"$CERT_OU\"/g" $OPENVPNDIR/easy-rsa/vars
+   sed -i "s/#set_var EASYRSA_REQ_COUNTRY.*/set_var EASYRSA_REQ_COUNTRY\\t\"$CERT_COUNTRY\"/g" $OPENVPNDIR/easy-rsa/vars
+   sed -i "s/#set_var EASYRSA_REQ_PROVINCE.*/set_var EASYRSA_REQ_PROVINCE\\t\"$CERT_PROVINCE\"/g" $OPENVPNDIR/easy-rsa/vars
+   sed -i "s/#set_var EASYRSA_REQ_CITY.*/set_var EASYRSA_REQ_CITY\\t\"$CERT_CITY\"/g" $OPENVPNDIR/easy-rsa/vars
+   sed -i "s/#set_var EASYRSA_REQ_ORG.*/set_var EASYRSA_REQ_ORG\\t\"$CERT_ORG\"/g" $OPENVPNDIR/easy-rsa/vars
+   sed -i "s/#set_var EASYRSA_REQ_EMAIL.*/set_var EASYRSA_REQ_EMAIL\\t\"$CERT_EMAIL\"/g" $OPENVPNDIR/easy-rsa/vars
+   sed -i "s/#set_var EASYRSA_REQ_OU.*/set_var EASYRSA_REQ_OU\\t\"$CERT_OU\"/g" $OPENVPNDIR/easy-rsa/vars
+   sed -i "s/#set_var EASYRSA_BATCH.*/set_var EASYRSA_BATCH\\t\"1\"/g" $OPENVPNDIR/easy-rsa/vars
+   sed -i "s/#set_var EASYRSA_DN.*/set_var EASYRSA_DN\\t\"org\"/g" $OPENVPNDIR/easy-rsa/vars
+   sed -i "s/#set_var EASYRSA_REQ_CN.*/set_var EASYRSA_REQ_CN\\t\"$CERT_CN\"/g" $OPENVPNDIR/easy-rsa/vars
 
    pushd $OPENVPNDIR/easy-rsa
    . ./vars
-   ./clean-all || error "Cannot clean previous keys"
+   ./easyrsa init-pki hard || error "Cannot clean previous keys"
    checkpoint
-   ./build-ca --batch || error "Cannot build certificate authority"
+   ./easyrsa build-ca nopass || error "Cannot build certificate authority"
    checkpoint
-   ./build-key-server --batch server || error "Cannot create server key"
+   ./easyrsa build-server-full server nopass || error "Cannot create server key"
    checkpoint
-   ./build-dh || error "Cannot create dh file"
+   ./easyrsa gen-dh || error "Cannot create dh file"
    checkpoint
-   ./build-key --batch RancherVPNClient
-   openvpn --genkey --secret keys/ta.key
+   ./easyrsa build-client-full RancherVPNClient nopass
    popd
+
+   # COPY keys to old directory structure
+   mkdir -p $OPENVPNDIR/easy-rsa/keys
+   openvpn --genkey --secret keys/ta.key
+   cp $OPENVPNDIR/easy-rsa/pki/ca.crt $OPENVPNDIR/easy-rsa/keys/
+   cp $OPENVPNDIR/easy-rsa/pki/dh.pem $OPENVPNDIR/easy-rsa/keys/dh2048.pem
+   cp $OPENVPNDIR/easy-rsa/pki/issued/server.crt $OPENVPNDIR/easy-rsa/keys/
+   cp $OPENVPNDIR/easy-rsa/pki/private/server.key $OPENVPNDIR/easy-rsa/keys/
+
 fi
 
 #=====[ Enable tcp forwarding and add iptables MASQUERADE rule ]================
 echo 1 > /proc/sys/net/ipv4/ip_forward
-iptables -t nat -F
-iptables -t nat -A POSTROUTING -s $VPNPOOL_NETWORK/$VPNPOOL_NETMASK -j MASQUERADE
+iptables-legacy -t nat -F
+iptables-legacy -t nat -A POSTROUTING -s $VPNPOOL_NETWORK/$VPNPOOL_NETMASK -j MASQUERADE
 
 
 /usr/local/bin/openvpn-get-client-config.sh > $OPENVPNDIR/client.conf

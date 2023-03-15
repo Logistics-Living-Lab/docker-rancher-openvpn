@@ -1,4 +1,4 @@
-#!/usr/bin/python
+#!/usr/bin/python3
 
 """
 Authentication handler for OpenVPN by Alexis Ducastel
@@ -14,7 +14,7 @@ from requests.auth import HTTPDigestAuth
 
 def auth_success(username):
     """ Authentication success, simply exiting with no error """
-    print "[INFO] OpenVPN Authentication success for " + username
+    print("[INFO] OpenVPN Authentication success for " + username)
     exit(0)
     
 
@@ -70,7 +70,7 @@ def auth_ldap(address, basedn, binddn, bindpwd, search, username, password):
         # Server unreachable
         auth_failure("Server unreachable",'ERROR')
         
-    except ldap.LDAPError, e:
+    except ldap.LDAPError as e:
         # Other ldap error
         if type(e.message) == dict and e.message.has_key('desc'):
             auth_failure("LDAP error: " + e.message['desc'])
